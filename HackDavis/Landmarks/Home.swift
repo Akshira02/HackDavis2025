@@ -1,19 +1,7 @@
 import SwiftUI
 
 struct MultiTimelineView: View {
-    @State private var timelines: [Timeline] = [
-        Timeline(name: "Visa Application>", steps: [
-            TimelineStep(type: .document, title: "Submit Docs", progress: 1.0),
-            TimelineStep(type: .office, title: "Visit Office", progress: 0.6),
-            TimelineStep(type: .fees, title: "Pay Fees", progress: 0.2),
-            TimelineStep(type: .prepare, title: "Prep Interview", progress: 0.0)
-        ]),
-        Timeline(name: "Work Permit>", steps: [
-            TimelineStep(type: .document, title: "Docs Upload", progress: 1.0),
-            TimelineStep(type: .fees, title: "Payment", progress: 0.8),
-            TimelineStep(type: .prepare, title: "Prep Docs", progress: 0.5)
-        ])
-    ]
+    @State private var timelines: [Timeline] = []
 
     var body: some View {
         NavigationView {
@@ -21,9 +9,11 @@ struct MultiTimelineView: View {
                 VStack(spacing: 30) {
                     ForEach(timelines) { timeline in
                         VStack(alignment: .leading, spacing: 20) {
-                            Text(timeline.name)
-                                .font(.title2)
-                                .bold()
+                            NavigationLink(destination: TimelineChecklistView(timeline: timeline)) {
+                                Text(timeline.name)
+                                    .font(.title2)
+                                    .bold()
+                            }
 
                             ScrollView(.horizontal, showsIndicators: false) {
                                 ZStack(alignment: .center) {
@@ -90,11 +80,100 @@ struct MultiTimelineView: View {
                         }
                         .padding(.horizontal)
                     }
+
+                    // Your Records Section
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Your Records")
+                            .font(.title2)
+                            .bold()
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Uploaded Documents")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                Text("• I-20.pdf")
+                                Text("• Passport Photo.jpg")
+                                Text("• SEVIS Receipt.pdf")
+                            }
+                            Spacer()
+                            NavigationLink(destination: RecordsView()) {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 32, weight: .bold))
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+                    }
+                    .padding(.horizontal)
                 }
                 .padding()
             }
             .navigationTitle("Your Timelines")
+            .onAppear {
+                loadTimelinesFromGPT()
+            }
         }
+    }
+    // Replace this with actual GPT integration logic
+           //u want the llm model to decide the icon ".document vs office vs fees prepare", and the title like "get ready for interview", and randomized progress. the number of timelines, and name of the Timeline will be decided by how many tasks they say they want to get done in the questionnarire. also the blue header text leads to checklist. the checklist displays info based off the status attribute.
+    func loadTimelinesFromGPT() {
+        timelines = [
+            Timeline(name: "F-1 Visa Application", steps: [
+                TimelineStep(type: .document, title: "Form I-20", progress: 0.0, status: .notStarted, note: "Apply to U.S. Schools (9–12 months before start)"),
+                TimelineStep(type: .document, title: "DS-160 confirmation page", progress: 0.0, status: .notStarted, note: "4–6 months before start"),
+                TimelineStep(type: .fees, title: "SEVIS fee payment receipt (Form I-901)", progress: 0.0, status: .notStarted, note: "3–5 months before start"),
+                TimelineStep(type: .office, title: "Visa appointment confirmation", progress: 0.0, status: .inProgress, note: "Schedule Visa Interview (3–4 months before start)"),
+                TimelineStep(type: .document, title: "Passport-style photograph", progress: 0.0, status: .inProgress, note: nil),
+                TimelineStep(type: .document, title: "Financial documents", progress: 1.0, status: .submitted, note: nil),
+                TimelineStep(type: .document, title: "Academic documents", progress: 1.0, status: .submitted, note: nil)
+            ])
+        ]
+    }
+}
+
+struct TimelineChecklistView: View {
+    let timeline: Timeline
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("F-1 Visa Application")
+                    .font(.title2)
+                    .bold()
+
+                ForEach(timeline.steps) { step in
+                    HStack(alignment: .top) {
+                        Image(systemName: step.status == .notStarted ? "square" : "checkmark.square")
+                            .foregroundColor(step.status == .notStarted ? .primary : .blue)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(step.title)
+                                .fontWeight(step.status == .notStarted ? .semibold : .regular)
+                                .strikethrough(step.status != .notStarted)
+                                .foregroundColor(step.status != .notStarted ? .blue : .primary)
+
+                            if let note = step.note {
+                                Text(note)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+        .navigationTitle(timeline.name)
+    }
+}
+
+struct RecordsView: View {
+    var body: some View {
+        Text("Records Detail Page")
+            .navigationTitle("Your Records")
     }
 }
 
@@ -113,12 +192,13 @@ struct TimelineStep: Identifiable {
     let type: TimelineType
     let title: String
     let progress: Double
+    let status: StepStatus
+    let note: String?
 }
 
-
-//edit this later for the docs formed
-enum TimelineType {
+enum TimelineType: String, Codable, CaseIterable {
     case document, office, fees, prepare
+
     var iconName: String {
         switch self {
         case .document: return "doc.text"
@@ -127,6 +207,12 @@ enum TimelineType {
         case .prepare: return "brain.head.profile"
         }
     }
+}
+
+enum StepStatus: String, CaseIterable {
+    case notStarted = "Not Started"
+    case inProgress = "Documents In Progress"
+    case submitted = "Documents Submitted"
 }
 
 struct TimelineStepDetail: View {
